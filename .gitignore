@@ -1,0 +1,4 @@
+*.swp
+.venv
+.eggs
+*egg-info
