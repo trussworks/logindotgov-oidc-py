@@ -7,7 +7,11 @@ build:
 install:
 	python setup.py install
 
-distcheck:
+lint:
+	flake8 logindotgov
+	black logindotgov
+
+distcheck: lint
 	python setup.py sdist
 
 dist:

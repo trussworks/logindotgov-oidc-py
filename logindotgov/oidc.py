@@ -45,16 +45,19 @@ class LoginDotGovOIDCCodeError(LoginDotGovOIDCError):
     pass
 
 
+class LoginDotGovOIDCStateError(LoginDotGovOIDCError):
+    pass
+
+
 def encode_left128bits(string):
     # 128 bits / 8 bits per byte = 16
     # ref https://github.com/18F/identity-idp/blob/799fc62621a30c54e7edba17e376d94606d0c956/app/services/id_token_builder.rb#L69
     return (
-        base64.urlsafe_b64encode(
-            hashlib.sha256(string.encode("utf-8")).digest()[0:16]
-        )
+        base64.urlsafe_b64encode(hashlib.sha256(string.encode("utf-8")).digest()[0:16])
         .decode("utf-8")
         .rstrip("=")
     )
+
 
 class LoginDotGovOIDCClient(object):
     @staticmethod
@@ -101,6 +104,17 @@ class LoginDotGovOIDCClient(object):
         url = self.config["authorization_endpoint"]
         return f"{url}?{urlencode(params)}&scope={'+'.join(scopes)}"
 
+    def validate_code_and_state(self, params):
+        if params.get("error"):
+            raise LoginDotGovOIDCError(params["error_description"])
+        code = params.get("code")
+        if code is None:
+            raise LoginDotGovOIDCCodeError("Missing code param")
+        state = params.get("state")
+        if state is None:
+            raise LoginDotGovOIDCStateError("Missing state param")
+        return code, state
+
     def get_tokens(self, code):
         jwt_args = {
             "iss": self.client_id,
@@ -137,7 +151,10 @@ class LoginDotGovOIDCClient(object):
             jwk_pem = jwk_key.export_to_pem().decode("utf-8")
             try:
                 decoded_id_token = jwt.decode(
-                    id_token, jwk_pem, audience=[self.client_id], algorithms=[SIGNING_ALGO]
+                    id_token,
+                    jwk_pem,
+                    audience=[self.client_id],
+                    algorithms=[SIGNING_ALGO],
                 )
             except Exception as error:
                 # just log and loop again
@@ -176,4 +193,3 @@ class LoginDotGovOIDCClient(object):
         headers = {"Authorization": f"Bearer {access_token}"}
         userinfo_resp = requests.get(self.config["userinfo_endpoint"], headers=headers)
         return userinfo_resp.json()
-
