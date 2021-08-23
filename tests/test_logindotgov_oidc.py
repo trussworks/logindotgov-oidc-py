@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from jwcrypto import jwk
-from logindotgov.oidc import LoginDotGovOIDCClient, LoginDotGovOIDCError, IAL1, IAL2, MOCK_URL, encode_left128bits, SIGNING_ALGO
+from logindotgov.oidc import LoginDotGovOIDCClient, LoginDotGovOIDCError, LoginDotGovOIDCCodeError, LoginDotGovOIDCStateError, LoginDotGovOIDCNonceError, LoginDotGovOIDCAccessTokenError, IAL1, IAL2, MOCK_URL, encode_left128bits, SIGNING_ALGO
 from urllib.parse import urlparse, parse_qs
 import pprint
 from jwcrypto.common import json_decode
@@ -59,6 +59,12 @@ def mock_oidc_config_endpoint():
 def mock_oidc_certs_endpoint():
     return MockResponse({"keys": [ {**server_public_key, "kid": server_public_key_jwk.thumbprint()} ] }, 200)
 
+def mock_oidc_userinfo_endpoint(args):
+    if "headers" not in args or args["headers"] != {'Authorization': 'Bearer the-access-token'}:
+        return MockResponse({"error": "missing or invalid Bearer"}, 401)
+
+    return MockResponse({"sub": "the-users-uuid", "iss": MOCK_URL, "email": "you@example.gov"}, 200)
+
 def mock_oidc_token_endpoint(payload):
     client_assertion = payload["client_assertion"]
     client_jwt = jwt.decode(client_assertion, client_public_key, audience=[token_endpoint], algorithms=[SIGNING_ALGO])
@@ -102,6 +108,9 @@ def mocked_logindotdov_oidc_server(*args, **kwargs):
     if "/token" in args[0]:
         return mock_oidc_token_endpoint(kwargs["data"])
 
+    if "/userinfo" in args[0]:
+        return mock_oidc_userinfo_endpoint(kwargs)
+
     return MockResponse("oops", 404)
 
 @patch("logindotgov.oidc.requests.get", new=MagicMock(side_effect=mocked_logindotdov_oidc_server))
@@ -133,6 +142,25 @@ def test_build_authorization_url():
     assert login_uri_parsed.path == '/openid_connect/authorize'
 
 @patch("logindotgov.oidc.requests.get", new=MagicMock(side_effect=mocked_logindotdov_oidc_server))
+def test_validate_code_and_state():
+    client = LoginDotGovOIDCClient(client_id=client_id, private_key=client_private_key)
+    valid_code, valid_state = client.validate_code_and_state({ "code": auth_code, "state": state })
+    assert valid_code == auth_code
+    assert valid_state == state
+
+    with pytest.raises(LoginDotGovOIDCError) as e_info:
+        client.validate_code_and_state({ "error": "oops", "error_description": "there was a problem" })
+    assert str(e_info.value) == "there was a problem"
+
+    with pytest.raises(LoginDotGovOIDCCodeError) as e_info:
+        client.validate_code_and_state({ "state": state })
+    assert str(e_info.value) == "Missing code param"
+
+    with pytest.raises(LoginDotGovOIDCStateError) as e_info:
+        client.validate_code_and_state({ "code": auth_code })
+    assert str(e_info.value) == "Missing state param"
+
+@patch("logindotgov.oidc.requests.get", new=MagicMock(side_effect=mocked_logindotdov_oidc_server))
 @patch("logindotgov.oidc.requests.post", new=MagicMock(side_effect=mocked_logindotdov_oidc_server))
 def test_tokens():
     logger = logging.getLogger("test_tokens")
@@ -146,4 +174,25 @@ def test_tokens():
     assert decoded_tokens["iss"] == MOCK_URL
     assert decoded_tokens["nonce"] == nonce
     assert decoded_tokens["sub"] == 'the-users-uuid'
+
+    with pytest.raises(LoginDotGovOIDCNonceError) as e_info:
+        decoded_tokens = client.validate_tokens(tokens, "not-the-nonce", auth_code)
+    assert str(e_info.value) == "login.gov nonce does not match client nonce"
+
+    with pytest.raises(LoginDotGovOIDCAccessTokenError) as e_info:
+        decoded_tokens = client.validate_tokens({**tokens, "access_token": "not-the-access-token"}, nonce, auth_code)
+    assert str(e_info.value) == "login.gov access_token hash does not match access_code"
+
+    with pytest.raises(LoginDotGovOIDCCodeError) as e_info:
+        decoded_tokens = client.validate_tokens(tokens, nonce, "not-the-auth-code")
+    assert str(e_info.value) == "login.gov code hash does not match initial code"
+
+@patch("logindotgov.oidc.requests.get", new=MagicMock(side_effect=mocked_logindotdov_oidc_server))
+@patch("logindotgov.oidc.requests.post", new=MagicMock(side_effect=mocked_logindotdov_oidc_server))
+def test_userinfo():
+    client = LoginDotGovOIDCClient(client_id=client_id, private_key=client_private_key)
+    tokens = client.get_tokens(auth_code)
+    decoded_tokens = client.validate_tokens(tokens, nonce, auth_code)
+    userinfo = client.get_userinfo(tokens["access_token"])
+    assert userinfo == {"sub": "the-users-uuid", "iss": MOCK_URL, "email": "you@example.gov"}
 

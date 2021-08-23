@@ -61,7 +61,7 @@ def encode_left128bits(string):
 
 class LoginDotGovOIDCClient(object):
     @staticmethod
-    def get_url():
+    def get_url():  # pragma: no cover
         env = os.environ.get("LOGIN_DOT_GOV_ENV", "sandbox")
         if env == "sandbox":
             return SANDBOX_URL
