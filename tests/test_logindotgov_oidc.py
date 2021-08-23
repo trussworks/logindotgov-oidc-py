@@ -15,7 +15,7 @@ from logindotgov.oidc import (
     SIGNING_ALGO,
 )
 from logindotgov.mock_server import OIDC as MockServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, parse_qsl
 import pprint
 from jwcrypto.common import json_decode
 import jwt
@@ -33,11 +33,10 @@ nonce = "noncenoncenoncenoncenonce"
 client_id = "urn:myapp"
 redirect_uri = "https://myapp.example.gov/auth/result"
 
-access_token = "the-access-token"
-auth_code = "the-code"
+MockServer.register_client(client_id, client_public_key, redirect_uri)
 
 def mocked_logindotdov_oidc_server(*args, **kwargs):
-    server = MockServer(access_token, auth_code, client_id, redirect_uri, client_public_key, nonce, state)
+    server = MockServer()
     return server.route_request(args, kwargs)
 
 @patch(
@@ -85,11 +84,13 @@ def test_build_authorization_url():
     new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
 )
 def test_validate_code_and_state():
+    code = "valid-code"
+    state = "valid-state"
     client = LoginDotGovOIDCClient(client_id=client_id, private_key=client_private_key)
     valid_code, valid_state = client.validate_code_and_state(
-        {"code": auth_code, "state": state}
+        {"code": code, "state": state }
     )
-    assert valid_code == auth_code
+    assert valid_code == code
     assert valid_state == state
 
     with pytest.raises(LoginDotGovOIDCError) as e_info:
@@ -103,7 +104,7 @@ def test_validate_code_and_state():
     assert str(e_info.value) == "Missing code param"
 
     with pytest.raises(LoginDotGovOIDCStateError) as e_info:
-        client.validate_code_and_state({"code": auth_code})
+        client.validate_code_and_state({"code": code})
     assert str(e_info.value) == "Missing state param"
 
 
@@ -115,28 +116,42 @@ def test_validate_code_and_state():
     "logindotgov.oidc.requests.post",
     new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
 )
-def test_tokens():
+def test_tokens_and_userinfo():
     logger = logging.getLogger("test_tokens")
     client = LoginDotGovOIDCClient(
         client_id=client_id, private_key=client_private_key, logger=logger
     )
-    tokens = client.get_tokens(auth_code)
+    login_uri = client.build_authorization_url(
+        state=state, nonce=nonce, redirect_uri=redirect_uri
+    )
+    login_uri_parsed = urlparse(login_uri)
+    query = dict(parse_qsl(login_uri_parsed.query))
+    authorize_response = MockServer.authorize_endpoint(query)
+    authorize_parsed = urlparse(authorize_response.json_data)
+    code, valid_state = client.validate_code_and_state(dict(parse_qsl(authorize_parsed.query)))
+    tokens = client.get_tokens(code)
     # print("tokens={}".format(pprint.pformat(tokens)))
-    decoded_tokens = client.validate_tokens(tokens, nonce, auth_code)
+    decoded_tokens = client.validate_tokens(tokens, nonce, code)
     # print("decoded_tokens={}".format(pprint.pformat(decoded_tokens)))
     assert decoded_tokens["acr"] == IAL1
     assert decoded_tokens["aud"] == client_id
     assert decoded_tokens["iss"] == MOCK_URL
-    assert decoded_tokens["nonce"] == nonce
     assert decoded_tokens["sub"] == "the-users-uuid"
 
+    userinfo = client.get_userinfo(tokens["access_token"])
+    assert userinfo == {
+        "sub": "the-users-uuid",
+        "iss": MOCK_URL,
+        "email": "you@example.gov",
+    }
+
     with pytest.raises(LoginDotGovOIDCNonceError) as e_info:
-        decoded_tokens = client.validate_tokens(tokens, "not-the-nonce", auth_code)
+        decoded_tokens = client.validate_tokens(tokens, "not-the-nonce", code)
     assert str(e_info.value) == "login.gov nonce does not match client nonce"
 
     with pytest.raises(LoginDotGovOIDCAccessTokenError) as e_info:
         decoded_tokens = client.validate_tokens(
-            {**tokens, "access_token": "not-the-access-token"}, nonce, auth_code
+            {**tokens, "access_token": "not-the-access-token"}, nonce, code
         )
     assert str(e_info.value) == "login.gov access_token hash does not match access_code"
 
@@ -144,22 +159,3 @@ def test_tokens():
         decoded_tokens = client.validate_tokens(tokens, nonce, "not-the-auth-code")
     assert str(e_info.value) == "login.gov code hash does not match initial code"
 
-
-@patch(
-    "logindotgov.oidc.requests.get",
-    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
-)
-@patch(
-    "logindotgov.oidc.requests.post",
-    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
-)
-def test_userinfo():
-    client = LoginDotGovOIDCClient(client_id=client_id, private_key=client_private_key)
-    tokens = client.get_tokens(auth_code)
-    decoded_tokens = client.validate_tokens(tokens, nonce, auth_code)
-    userinfo = client.get_userinfo(tokens["access_token"])
-    assert userinfo == {
-        "sub": "the-users-uuid",
-        "iss": MOCK_URL,
-        "email": "you@example.gov",
-    }
