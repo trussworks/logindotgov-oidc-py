@@ -1,6 +1,14 @@
 # logindotgov-oidc-py
 
-OpenID Connect Relying Party client in Python.
+OpenID Connect (OIDC) Relying Party client in Python for login.gov.
+
+## Why?
+
+There are many OIDC clients available for Python. Most of them implement all the ODIC protocols,
+with varying degrees of user-friendliness.
+
+This library is scoped narrowly to the protocol of the [login.gov OIDC implementation](https://developers.login.gov/oidc/),
+with an emphasis on ease of use and correct, secure implementation of the OIDC standard that login.gov uses.
 
 ## Requirements
 
@@ -133,8 +141,8 @@ def result(request):
     request.session["verified"] = True
     request.session["logindotgov"]["userinfo"] = userinfo
 
-    # just to show you want your session looks like. In actual code,
-    # this would be the app you were authenticating for.
+    # Redirect to /explain to demonstrate what your session looks like.
+    # In actual code, this would redirect to your app.
     return redirect("/logindotgov/explain")
 ```
 
