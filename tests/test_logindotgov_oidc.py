@@ -14,6 +14,7 @@ from logindotgov.oidc import (
     encode_left128bits,
     SIGNING_ALGO,
 )
+from logindotgov.mock_server import OIDC as MockServer
 from urllib.parse import urlparse, parse_qs
 import pprint
 from jwcrypto.common import json_decode
@@ -32,124 +33,12 @@ nonce = "noncenoncenoncenoncenonce"
 client_id = "urn:myapp"
 redirect_uri = "https://myapp.example.gov/auth/result"
 
-############################################################
-# mock login.gov OIDC server
-
 access_token = "the-access-token"
 auth_code = "the-code"
-server_private_key_jwk = jwk.JWK.generate(kty="RSA", size=4096)
-server_private_key_attrs = json_decode(server_private_key_jwk.export_public())
-server_private_key_pem = server_private_key_jwk.export_to_pem(True, None).decode(
-    "utf-8"
-)
-server_public_key_jwk = jwk.JWK()
-server_public_key_jwk.import_key(**server_private_key_attrs)
-server_public_key = server_public_key_jwk.export_public(True)
-server_public_key_pem = server_public_key_jwk.export_to_pem().decode("utf-8")
-token_endpoint = f"{MOCK_URL}api/openid_connect/token"
-
-
-class MockResponse:
-    def __init__(self, json_data, status_code):
-        self.json_data = json_data
-        self.status_code = status_code
-
-    def json(self):
-        return self.json_data
-
-    def raise_for_status(self):
-        if self.status_code != 200:
-            raise RequestException("oops")
-        return None
-
-
-def mock_oidc_config_endpoint():
-    config = {
-        "authorization_endpoint": f"{MOCK_URL}openid_connect/authorize",
-        "jwks_uri": f"{MOCK_URL}api/openid_connect/certs",
-        "token_endpoint": token_endpoint,
-        "userinfo_endpoint": f"{MOCK_URL}api/openid_connect/userinfo",
-    }
-    return MockResponse(config, 200)
-
-
-def mock_oidc_certs_endpoint():
-    return MockResponse(
-        {"keys": [{**server_public_key, "kid": server_public_key_jwk.thumbprint()}]},
-        200,
-    )
-
-
-def mock_oidc_userinfo_endpoint(args):
-    if "headers" not in args or args["headers"] != {
-        "Authorization": "Bearer the-access-token"
-    }:
-        return MockResponse({"error": "missing or invalid Bearer"}, 401)
-
-    return MockResponse(
-        {"sub": "the-users-uuid", "iss": MOCK_URL, "email": "you@example.gov"}, 200
-    )
-
-
-def mock_oidc_token_endpoint(payload):
-    client_assertion = payload["client_assertion"]
-    client_jwt = jwt.decode(
-        client_assertion,
-        client_public_key,
-        audience=[token_endpoint],
-        algorithms=[SIGNING_ALGO],
-    )
-    if client_jwt["iss"] != client_id:
-        raise Exception("client_id mismatch")
-    # TODO check aud
-
-    args = {
-        "iss": MOCK_URL,
-        "sub": "the-users-uuid",
-        "aud": client_id,
-        "acr": IAL1,
-        "at_hash": encode_left128bits(access_token),
-        "c_hash": encode_left128bits(auth_code),
-        "exp": time.time() + 60,
-        "iat": time.time(),
-        "jti": "a-secret-unique-key",
-        "nbf": time.time(),
-        "nonce": nonce,
-    }
-    id_token = jwt.encode(
-        args,
-        server_private_key_pem,
-        algorithm=SIGNING_ALGO,
-        headers={"kid": server_public_key_jwk.thumbprint()},
-    )
-    resp = {
-        "id_token": id_token,
-        "expires_in": 60,
-        "token_type": "Bearer",
-        "access_token": access_token,
-    }
-    return MockResponse(resp, 200)
-
 
 def mocked_logindotdov_oidc_server(*args, **kwargs):
-    if "/authorize" in args[0]:
-        redirect_to = "TODO"
-        return MockResponse(f"{redirect_to}?code={auth_code}&state={state}", 302)
-
-    if "/openid-configuration" in args[0]:
-        return mock_oidc_config_endpoint()
-
-    if "/certs" in args[0]:
-        return mock_oidc_certs_endpoint()
-
-    if "/token" in args[0]:
-        return mock_oidc_token_endpoint(kwargs["data"])
-
-    if "/userinfo" in args[0]:
-        return mock_oidc_userinfo_endpoint(kwargs)
-
-    return MockResponse("oops", 404)
-
+    server = MockServer(access_token, auth_code, client_id, redirect_uri, client_public_key, nonce, state)
+    return server.route_request(args, kwargs)
 
 @patch(
     "logindotgov.oidc.requests.get",

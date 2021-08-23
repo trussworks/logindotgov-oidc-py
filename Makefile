@@ -10,6 +10,8 @@ install:
 
 lint:
 	flake8 logindotgov
+
+lint-fix:
 	black logindotgov
 
 distcheck: lint
