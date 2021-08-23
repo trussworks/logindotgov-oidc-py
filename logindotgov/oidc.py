@@ -83,25 +83,18 @@ class LoginDotGovOIDCClient(object):
         self.private_key = kwargs["private_key"]
         self.logger = kwargs.get("logger")  # optional
 
-    def build_authorization_url(
-        self,
-        state,
-        nonce,
-        redirect_uri,
-        acrs=IAL1,
-        scopes=["openid", "email"],
-        prompt="select_account",
-    ):
+    def build_authorization_url(self, **kwargs):
         params = {
             "response_type": "code",
-            "redirect_uri": redirect_uri,
-            "acr_values": acrs,
+            "redirect_uri": kwargs["redirect_uri"],
+            "acr_values": kwargs.get("acrs", IAL1),
             "client_id": self.client_id,
-            "state": state,
-            "nonce": nonce,
-            "prompt": prompt,
+            "state": kwargs["state"],
+            "nonce": kwargs["nonce"],
+            "prompt": kwargs.get("prompt", "select_account"),
         }
         url = self.config["authorization_endpoint"]
+        scopes = kwargs.get("scopes", ["openid", "email"])
         return f"{url}?{urlencode(params)}&scope={'+'.join(scopes)}"
 
     def validate_code_and_state(self, params):
