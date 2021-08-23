@@ -9,7 +9,6 @@ from logindotgov.oidc import (
     LoginDotGovOIDCNonceError,
     LoginDotGovOIDCAccessTokenError,
     IAL1,
-    IAL2,
     MOCK_URL,
     encode_left128bits,
     SIGNING_ALGO,
