@@ -37,7 +37,7 @@ with an emphasis on ease of use and correct, secure implementation of the OIDC s
 
 ## Examples
 
-Here's an example Django view called `logindotgov/views.py`. It assumes that you have set some configuration
+Here's an example Django view called `login-dot-gov/views.py`. It assumes that you have set some configuration
 in your main Django `settings.py` file, as in:
 
 ```python
@@ -143,7 +143,7 @@ def result(request):
 
     # Redirect to /explain to demonstrate what your session looks like.
     # In actual code, this would redirect to your app.
-    return redirect("/logindotgov/explain")
+    return redirect("/login-dot-gov/explain")
 ```
 
 The accompanying `urls.py` file looks like:
