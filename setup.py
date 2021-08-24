@@ -1,10 +1,10 @@
-from setuptools import find_packages, setup
+from setuptools import setup
 
 setup(
     url="https://github.com/trussworks/logindotgov-oidc-py",
     python_requires=">3.5",
     name="logindotgov-oidc",
-    packages=find_packages(include=["logindotgov.oidc"]),
+    packages=["logindotgov"],
     version="0.1.0",
     description="OpenID Connect Relying Party client",
     author="Peter Karman",
