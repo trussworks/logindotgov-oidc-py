@@ -147,11 +147,10 @@ class OIDC:
         if not code_entry:
             return MockResponse({"error": "missing or invalid Bearer"}, 401)
 
-        # TODO flesh out scopes
-
-        return MockResponse(
-            {"sub": "the-users-uuid", "iss": MOCK_URL, "email": "you@example.gov"}, 200
-        )
+        payload = {"sub": "the-users-uuid", "iss": MOCK_URL, "email": "you@example.gov"}
+        for s in code_entry["scope"]:
+            payload[s] = secrets.token_hex(4)
+        return MockResponse(payload, 200)
 
     def token_endpoint(self, payload):
         client_assertion = payload["client_assertion"]

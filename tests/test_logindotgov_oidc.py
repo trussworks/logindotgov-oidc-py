@@ -138,11 +138,9 @@ def test_tokens_and_userinfo():
     assert decoded_tokens["sub"] == "the-users-uuid"
 
     userinfo = client.get_userinfo(tokens["access_token"])
-    assert userinfo == {
-        "sub": "the-users-uuid",
-        "iss": MOCK_URL,
-        "email": "you@example.gov",
-    }
+    assert userinfo["sub"] == "the-users-uuid"
+    assert userinfo["iss"] == MOCK_URL
+    assert userinfo["email"] == "you@example.gov"
 
     with pytest.raises(LoginDotGovOIDCNonceError) as e_info:
         decoded_tokens = client.validate_tokens(tokens, "not-the-nonce", code)
