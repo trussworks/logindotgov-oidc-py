@@ -148,7 +148,9 @@ class OIDC:
             return MockResponse({"error": "missing or invalid Bearer"}, 401)
 
         payload = {"sub": "the-users-uuid", "iss": MOCK_URL, "email": "you@example.gov"}
-        for s in code_entry["scope"]:
+        for s in code_entry["scope"].split(" "):
+            if s in payload:
+                continue
             payload[s] = secrets.token_hex(4)
         return MockResponse(payload, 200)
 

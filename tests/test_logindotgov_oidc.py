@@ -138,6 +138,7 @@ def test_tokens_and_userinfo():
     assert decoded_tokens["sub"] == "the-users-uuid"
 
     userinfo = client.get_userinfo(tokens["access_token"])
+    # print("userinfo={}".format(pprint.pformat(userinfo)))
     assert userinfo["sub"] == "the-users-uuid"
     assert userinfo["iss"] == MOCK_URL
     assert userinfo["email"] == "you@example.gov"
