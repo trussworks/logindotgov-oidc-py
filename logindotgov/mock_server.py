@@ -151,7 +151,22 @@ class OIDC:
         for s in code_entry["scope"].split(" "):
             if s in payload:
                 continue
-            payload[s] = secrets.token_hex(4)
+            if s == "profile": # expand to all attributes
+                payload["given_name"] = secrets.token_hex(4)
+                payload["family_name"] = secrets.token_hex(4)
+                payload["birthdate"] = "1970-03-29"
+            elif s == "profile:name":
+                payload["given_name"] = secrets.token_hex(4)
+                payload["family_name"] = secrets.token_hex(4)
+            elif s == "profile:birthdate":
+                payload["birthdate"] = "1970-03-29"
+            elif s == "address":
+                payload["street_address"] = "1600 Pennsylvania Ave"
+                payload["locality"] = "Washington"
+                payload["region"] = "DC"
+                payload["postal_code"] = "20500"
+            else:
+                payload[s] = secrets.token_hex(4)
         return MockResponse(payload, 200)
 
     def token_endpoint(self, payload):
