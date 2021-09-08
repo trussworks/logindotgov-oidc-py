@@ -1,5 +1,5 @@
 test:
-	PYTHONPATH='.' LOGIN_DOT_GOV_ENV=mock coverage run --source=logindotgov -m pytest -s
+	PYTHONPATH='.' LOGIN_DOT_GOV_ENV=mock coverage run --source=logindotgov -m pytest -s -vv
 	coverage report -m --skip-covered --fail-under 90
 
 build:

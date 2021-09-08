@@ -161,10 +161,13 @@ class OIDC:
             elif s == "profile:birthdate":
                 payload["birthdate"] = "1970-03-29"
             elif s == "address":
-                payload["street_address"] = "1600 Pennsylvania Ave"
-                payload["locality"] = "Washington"
-                payload["region"] = "DC"
-                payload["postal_code"] = "20500"
+                addr = {}
+                addr["street_address"] = "1600 Pennsylvania Ave"
+                addr["locality"] = "Washington"
+                addr["region"] = "DC"
+                addr["postal_code"] = "20500"
+                addr["formatted"] = "1600 Pennsylvania Ave Washington DC 20500"
+                payload["address"] = addr
             else:
                 payload[s] = secrets.token_hex(4)
         return MockResponse(payload, 200)

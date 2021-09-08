@@ -9,6 +9,7 @@ from logindotgov.oidc import (
     LoginDotGovOIDCNonceError,
     LoginDotGovOIDCAccessTokenError,
     IAL1,
+    IAL2,
     MOCK_URL,
     encode_left128bits,
     SIGNING_ALGO,
@@ -34,6 +35,8 @@ redirect_uri = "https://myapp.example.gov/auth/result"
 
 MockServer.register_client(client_id, client_public_key, redirect_uri)
 
+IAL2_SCOPES = "openid email address profile"
+
 def mocked_logindotdov_oidc_server(*args, **kwargs):
     server = MockServer()
     return server.route_request(args, kwargs)
@@ -57,7 +60,7 @@ def test_init():
 def test_build_authorization_url():
     client = LoginDotGovOIDCClient(client_id=client_id, private_key=client_private_key)
     login_uri = client.build_authorization_url(
-        state=state, nonce=nonce, redirect_uri=redirect_uri
+        state=state, nonce=nonce, redirect_uri=redirect_uri, scopes=IAL2_SCOPES.split(" "), acrs=IAL2,
     )
     # print("login_uri={}".format(login_uri))
     login_uri_parsed = urlparse(login_uri)
@@ -65,13 +68,13 @@ def test_build_authorization_url():
     query = parse_qs(login_uri_parsed.query)
     # print("query={}".format(pprint.pformat(query)))
     assert query == {
-        "acr_values": ["http://idmanagement.gov/ns/assurance/ial/1"],
+        "acr_values": [IAL2],
         "client_id": ["urn:myapp"],
         "nonce": ["noncenoncenoncenoncenonce"],
         "prompt": ["select_account"],
         "redirect_uri": ["https://myapp.example.gov/auth/result"],
         "response_type": ["code"],
-        "scope": ["openid email"],
+        "scope": [IAL2_SCOPES],
         "state": ["statestatestatestatestate"],
     }
     assert login_uri_parsed.netloc == "mockhost.login.gov"
@@ -121,7 +124,7 @@ def test_tokens_and_userinfo():
         client_id=client_id, private_key=client_private_key, logger=logger
     )
     login_uri = client.build_authorization_url(
-        state=state, nonce=nonce, redirect_uri=redirect_uri
+        state=state, nonce=nonce, redirect_uri=redirect_uri, scopes=IAL2_SCOPES.split(" "), acrs=IAL2,
     )
     login_uri_parsed = urlparse(login_uri)
     query = dict(parse_qsl(login_uri_parsed.query))
