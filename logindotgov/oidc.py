@@ -148,6 +148,7 @@ class LoginDotGovOIDCClient(object):
                     jwk_pem,
                     audience=[self.client_id],
                     algorithms=[SIGNING_ALGO],
+                    leeway=2,  # 2 seconds of clock drift grace between client and server
                 )
             except Exception as error:
                 # just log and loop again
