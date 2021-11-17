@@ -99,7 +99,8 @@ class LoginDotGovOIDCClient(object):
 
     def validate_code_and_state(self, params):
         if params.get("error"):
-            raise LoginDotGovOIDCError(params["error_description"])
+            error_msg = params.get("error_description", params.get("error"))
+            raise LoginDotGovOIDCError(error_msg)
         code = params.get("code")
         if code is None:
             raise LoginDotGovOIDCCodeError("Missing code param")
