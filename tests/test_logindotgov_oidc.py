@@ -35,6 +35,7 @@ redirect_uri = "https://myapp.example.gov/auth/result"
 
 MockServer.register_client(client_id, client_public_key, redirect_uri)
 
+IAL1_SCOPES = "openid email profile:verified_at all_emails address" # address is invalid on purpose
 IAL2_SCOPES = "openid email address profile"
 
 def mocked_logindotdov_oidc_server(*args, **kwargs):
@@ -118,7 +119,7 @@ def test_validate_code_and_state():
     "logindotgov.oidc.requests.post",
     new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
 )
-def test_tokens_and_userinfo():
+def test_tokens_and_userinfo_IAL2():
     logger = logging.getLogger("test_tokens")
     client = LoginDotGovOIDCClient(
         client_id=client_id, private_key=client_private_key, logger=logger
@@ -135,7 +136,7 @@ def test_tokens_and_userinfo():
     # print("tokens={}".format(pprint.pformat(tokens)))
     decoded_tokens = client.validate_tokens(tokens, nonce, code)
     # print("decoded_tokens={}".format(pprint.pformat(decoded_tokens)))
-    assert decoded_tokens["acr"] == IAL1
+    assert decoded_tokens["acr"] == IAL2
     assert decoded_tokens["aud"] == client_id
     assert decoded_tokens["iss"] == MOCK_URL
     assert decoded_tokens["sub"] == "the-users-uuid"
@@ -145,6 +146,9 @@ def test_tokens_and_userinfo():
     assert userinfo["sub"] == "the-users-uuid"
     assert userinfo["iss"] == MOCK_URL
     assert userinfo["email"] == "you@example.gov"
+    assert userinfo["address"]["street_address"] == "1600 Pennsylvania Ave"
+    assert "social_security_number" not in userinfo
+    assert "verified_at" not in userinfo
 
     with pytest.raises(LoginDotGovOIDCNonceError) as e_info:
         decoded_tokens = client.validate_tokens(tokens, "not-the-nonce", code)
@@ -160,3 +164,39 @@ def test_tokens_and_userinfo():
         decoded_tokens = client.validate_tokens(tokens, nonce, "not-the-auth-code")
     assert str(e_info.value) == "login.gov code hash does not match initial code"
 
+ 
+@patch(
+    "logindotgov.oidc.requests.get",
+    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
+)
+@patch(
+    "logindotgov.oidc.requests.post",
+    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
+)
+def test_tokens_and_userinfo_IAL1():
+    logger = logging.getLogger("test_tokens")
+    client = LoginDotGovOIDCClient(
+        client_id=client_id, private_key=client_private_key, logger=logger
+    )
+    login_uri = client.build_authorization_url(
+        state=state, nonce=nonce, redirect_uri=redirect_uri, scopes=IAL1_SCOPES.split(" "), acrs=IAL1,
+    )
+    login_uri_parsed = urlparse(login_uri)
+    query = dict(parse_qsl(login_uri_parsed.query))
+    authorize_response = MockServer.authorize_endpoint(query)
+    authorize_parsed = urlparse(authorize_response.json_data)
+    code, valid_state = client.validate_code_and_state(dict(parse_qsl(authorize_parsed.query)))
+    tokens = client.get_tokens(code)
+    decoded_tokens = client.validate_tokens(tokens, nonce, code)
+    assert decoded_tokens["acr"] == IAL1
+    assert decoded_tokens["aud"] == client_id
+    assert decoded_tokens["iss"] == MOCK_URL
+    assert decoded_tokens["sub"] == "the-users-uuid"
+
+    userinfo = client.get_userinfo(tokens["access_token"])
+    assert userinfo["sub"] == "the-users-uuid"
+    assert userinfo["iss"] == MOCK_URL
+    assert userinfo["email"] == "you@example.gov"
+    assert userinfo["all_emails"] == ["you@example.com", "you@example.net"]
+    assert "address" not in userinfo
+    assert "verified_at" in userinfo

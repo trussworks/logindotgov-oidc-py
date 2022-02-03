@@ -147,11 +147,23 @@ class OIDC:
         if not code_entry:
             return MockResponse({"error": "missing or invalid Bearer"}, 401)
 
+        allowed_IAL1 = [
+            "verified_at",  # not the scope name, the payload name
+            "sub",
+            "iss",
+            "email",
+            "all_emails",
+            "ial",
+            "aal",
+        ]
+
+        # fill out the payload with everything requested in scope,
+        # and then redact anything required by acr (IAL)
         payload = {"sub": "the-users-uuid", "iss": MOCK_URL, "email": "you@example.gov"}
         for s in code_entry["scope"].split(" "):
             if s in payload:
                 continue
-            if s == "profile": # expand to all attributes
+            if s == "profile":  # expand to all attributes
                 payload["given_name"] = secrets.token_hex(4)
                 payload["family_name"] = secrets.token_hex(4)
                 payload["birthdate"] = "1970-03-29"
@@ -168,8 +180,21 @@ class OIDC:
                 addr["postal_code"] = "20500"
                 addr["formatted"] = "1600 Pennsylvania Ave Washington DC 20500"
                 payload["address"] = addr
+            elif s == "profile:verified_at":
+                payload["verified_at"] = int(time.time())
+            elif s == "all_emails":
+                payload["all_emails"] = ["you@example.com", "you@example.net"]
+            elif s == "social_security_number":
+                payload["social_security_number"] = "900-00-1234"
             else:
                 payload[s] = secrets.token_hex(4)
+
+        # redact if necessary
+        if "acr" in code_entry and code_entry["acr"] == IAL1:
+            payload = {
+                key: value for key, value in payload.items() if key in allowed_IAL1
+            }
+
         return MockResponse(payload, 200)
 
     def token_endpoint(self, payload):
@@ -198,7 +223,7 @@ class OIDC:
             "iss": MOCK_URL,
             "sub": "the-users-uuid",
             "aud": client_id,
-            "acr": IAL1,  # TODO variable based on initial scope
+            "acr": codes[code]["acr"] or IAL1,  # TODO variable based on initial scope
             "at_hash": encode_left128bits(access_token),
             "c_hash": encode_left128bits(code),
             "exp": time.time() + 60,
