@@ -148,7 +148,7 @@ def test_tokens_and_userinfo_IAL2():
     assert userinfo["email"] == "you@example.gov"
     assert userinfo["address"]["street_address"] == "1600 Pennsylvania Ave"
     assert "social_security_number" not in userinfo
-    assert "verified_at" not in userinfo
+    assert "verified_at" in userinfo
 
     with pytest.raises(LoginDotGovOIDCNonceError) as e_info:
         decoded_tokens = client.validate_tokens(tokens, "not-the-nonce", code)

@@ -167,6 +167,7 @@ class OIDC:
                 payload["given_name"] = secrets.token_hex(4)
                 payload["family_name"] = secrets.token_hex(4)
                 payload["birthdate"] = "1970-03-29"
+                payload["verified_at"] = int(time.time())
             elif s == "profile:name":
                 payload["given_name"] = secrets.token_hex(4)
                 payload["family_name"] = secrets.token_hex(4)
