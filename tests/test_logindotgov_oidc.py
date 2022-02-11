@@ -31,9 +31,11 @@ client_public_key = client_public_key_jwk.export_to_pem().decode("utf-8")
 state = "statestatestatestatestate"
 nonce = "noncenoncenoncenoncenonce"
 client_id = "urn:myapp"
+client_id_ial1_only = "urn:myapp:verified:false"
 redirect_uri = "https://myapp.example.gov/auth/result"
 
 MockServer.register_client(client_id, client_public_key, redirect_uri)
+MockServer.register_client(client_id_ial1_only, client_public_key, redirect_uri)
 
 IAL1_SCOPES = "openid email profile:verified_at all_emails address" # address is invalid on purpose
 IAL2_SCOPES = "openid email address profile"
@@ -200,3 +202,39 @@ def test_tokens_and_userinfo_IAL1():
     assert userinfo["all_emails"] == ["you@example.com", "you@example.net"]
     assert "address" not in userinfo
     assert "verified_at" in userinfo
+
+@patch(
+    "logindotgov.oidc.requests.get",
+    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
+)
+@patch(
+    "logindotgov.oidc.requests.post",
+    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
+)
+def test_tokens_and_userinfo_IAL1_unverified():
+    logger = logging.getLogger("test_tokens")
+    client = LoginDotGovOIDCClient(
+        client_id=client_id_ial1_only, private_key=client_private_key, logger=logger
+    )
+    login_uri = client.build_authorization_url(
+        state=state, nonce=nonce, redirect_uri=redirect_uri, scopes=IAL1_SCOPES.split(" "), acrs=IAL1,
+    )
+    login_uri_parsed = urlparse(login_uri)
+    query = dict(parse_qsl(login_uri_parsed.query))
+    authorize_response = MockServer.authorize_endpoint(query)
+    authorize_parsed = urlparse(authorize_response.json_data)
+    code, valid_state = client.validate_code_and_state(dict(parse_qsl(authorize_parsed.query)))
+    tokens = client.get_tokens(code)
+    decoded_tokens = client.validate_tokens(tokens, nonce, code)
+    assert decoded_tokens["acr"] == IAL1
+    assert decoded_tokens["aud"] == client_id_ial1_only
+    assert decoded_tokens["iss"] == MOCK_URL
+    assert decoded_tokens["sub"] == "the-users-uuid"
+
+    userinfo = client.get_userinfo(tokens["access_token"])
+    assert userinfo["sub"] == "the-users-uuid"
+    assert userinfo["iss"] == MOCK_URL
+    assert userinfo["email"] == "you@example.gov"
+    assert userinfo["all_emails"] == ["you@example.com", "you@example.net"]
+    assert "address" not in userinfo
+    assert userinfo["verified_at"] == None

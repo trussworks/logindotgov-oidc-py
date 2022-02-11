@@ -182,7 +182,11 @@ class OIDC:
                 addr["formatted"] = "1600 Pennsylvania Ave Washington DC 20500"
                 payload["address"] = addr
             elif s == "profile:verified_at":
-                payload["verified_at"] = int(time.time())
+                payload["verified_at"] = (
+                    None
+                    if "verified:false" in code_entry["client_id"]
+                    else int(time.time())
+                )
             elif s == "all_emails":
                 payload["all_emails"] = ["you@example.com", "you@example.net"]
             elif s == "social_security_number":
