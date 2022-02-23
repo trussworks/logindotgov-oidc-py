@@ -179,7 +179,7 @@ class OIDC:
                 addr["locality"] = "Washington"
                 addr["region"] = "DC"
                 addr["postal_code"] = "20500"
-                addr["formatted"] = "1600 Pennsylvania Ave, Oval Office, Washington DC 20500"
+                addr["formatted"] = "1600 Pennsylvania Ave\nOval Office\nWashington DC 20500"
                 payload["address"] = addr
             elif s == "profile:verified_at":
                 payload["verified_at"] = (
