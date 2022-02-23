@@ -148,7 +148,7 @@ def test_tokens_and_userinfo_IAL2():
     assert userinfo["sub"] == "the-users-uuid"
     assert userinfo["iss"] == MOCK_URL
     assert userinfo["email"] == "you@example.gov"
-    assert userinfo["address"]["street_address"] == "1600 Pennsylvania Ave"
+    assert userinfo["address"]["street_address"] == "1600 Pennsylvania Ave\nOval Office"
     assert "social_security_number" not in userinfo
     assert "verified_at" in userinfo
 

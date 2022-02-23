@@ -175,11 +175,11 @@ class OIDC:
                 payload["birthdate"] = "1970-03-29"
             elif s == "address":
                 addr = {}
-                addr["street_address"] = "1600 Pennsylvania Ave"
+                addr["street_address"] = "1600 Pennsylvania Ave\nOval Office"
                 addr["locality"] = "Washington"
                 addr["region"] = "DC"
                 addr["postal_code"] = "20500"
-                addr["formatted"] = "1600 Pennsylvania Ave Washington DC 20500"
+                addr["formatted"] = "1600 Pennsylvania Ave, Oval Office, Washington DC 20500"
                 payload["address"] = addr
             elif s == "profile:verified_at":
                 payload["verified_at"] = (
