@@ -90,6 +90,14 @@ class OIDC:
 
         return MockResponse(f"{redirect_uri}?code={code}&state={state}", 302)
 
+
+    @classmethod
+    def logout(cls, params):
+        state = params["state"]
+        redirect_uri = params["post_logout_redirect_uri"]
+        return MockResponse(f"{redirect_uri}?state={state}", 302)
+
+
     def route_request(self, args, kwargs):
         endpoint = args[0]
         if "/authorize" in endpoint:
@@ -115,6 +123,7 @@ class OIDC:
             "jwks_uri": f"{MOCK_URL}api/openid_connect/certs",
             "token_endpoint": self.token_uri,
             "userinfo_endpoint": f"{MOCK_URL}api/openid_connect/userinfo",
+            "end_session_endpoint": f"{MOCK_URL}openid_connect/logout",
         }
         return MockResponse(config, 200)
 

@@ -131,6 +131,16 @@ class LoginDotGovOIDCClient(object):
         # TODO check errors, status
         return resp.json()
 
+    def get_logout_url(self, tokens, redirect_uri, state):
+        id_token = tokens["id_token"]
+        params = {
+            "id_token_hint": id_token,
+            "post_logout_redirect_uri": redirect_uri,
+            "state": state
+        }
+        url = self.config["end_session_endpoint"]
+        return f"{url}?{urlencode(params)}"
+
     def validate_tokens(self, tokens, nonce, code):
         access_token = tokens["access_token"]
         id_token = tokens["id_token"]

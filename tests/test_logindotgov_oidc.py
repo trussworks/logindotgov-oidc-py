@@ -166,6 +166,39 @@ def test_tokens_and_userinfo_IAL2():
         decoded_tokens = client.validate_tokens(tokens, nonce, "not-the-auth-code")
     assert str(e_info.value) == "login.gov code hash does not match initial code"
 
+
+@patch(
+    "logindotgov.oidc.requests.get",
+    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
+)
+@patch(
+    "logindotgov.oidc.requests.post",
+    new=MagicMock(side_effect=mocked_logindotdov_oidc_server),
+)
+def test_logout_url():
+    logger = logging.getLogger("test_tokens")
+    client = LoginDotGovOIDCClient(
+        client_id=client_id, private_key=client_private_key, logger=logger
+    )
+    login_uri = client.build_authorization_url(
+        state=state, nonce=nonce, redirect_uri=redirect_uri, scopes=IAL2_SCOPES.split(" "), acrs=IAL2,
+    )
+    login_uri_parsed = urlparse(login_uri)
+    query = dict(parse_qsl(login_uri_parsed.query))
+    authorize_response = MockServer.authorize_endpoint(query)
+    authorize_parsed = urlparse(authorize_response.json_data)
+    code, valid_state = client.validate_code_and_state(dict(parse_qsl(authorize_parsed.query)))
+    tokens = client.get_tokens(code)
+    logout_state = f"{state}-logout"
+    logout_redirect = "https://example.gov/logout"
+    logout_url = client.get_logout_url(tokens, logout_redirect, logout_state)
+    query = dict(parse_qsl(logout_url))
+    logout_response = MockServer.logout(query)
+    logout_parsed = urlparse(logout_response.json_data)
+    assert logout_parsed.path == "/logout"
+    assert logout_parsed.netloc == "example.gov"
+    assert logout_parsed.query == f"state={logout_state}"
+
  
 @patch(
     "logindotgov.oidc.requests.get",
