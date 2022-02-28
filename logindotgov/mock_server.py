@@ -90,13 +90,11 @@ class OIDC:
 
         return MockResponse(f"{redirect_uri}?code={code}&state={state}", 302)
 
-
     @classmethod
     def logout(cls, params):
         state = params["state"]
         redirect_uri = params["post_logout_redirect_uri"]
         return MockResponse(f"{redirect_uri}?state={state}", 302)
-
 
     def route_request(self, args, kwargs):
         endpoint = args[0]
@@ -188,7 +186,9 @@ class OIDC:
                 addr["locality"] = "Washington"
                 addr["region"] = "DC"
                 addr["postal_code"] = "20500"
-                addr["formatted"] = "1600 Pennsylvania Ave\nOval Office\nWashington DC 20500"
+                addr[
+                    "formatted"
+                ] = "1600 Pennsylvania Ave\nOval Office\nWashington DC 20500"
                 payload["address"] = addr
             elif s == "profile:verified_at":
                 payload["verified_at"] = (

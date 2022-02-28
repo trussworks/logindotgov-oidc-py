@@ -136,7 +136,7 @@ class LoginDotGovOIDCClient(object):
         params = {
             "id_token_hint": id_token,
             "post_logout_redirect_uri": redirect_uri,
-            "state": state
+            "state": state,
         }
         url = self.config["end_session_endpoint"]
         return f"{url}?{urlencode(params)}"
