@@ -50,7 +50,7 @@ LOGIN_DOT_GOV_CLIENT_ID = "urn:gov:gsa:openidconnect.profiles:sp:sso:myagency:my
 LOGIN_DOT_GOV_IAL1_SCOPES = ["openid", "email"]
 
 # the private key should be a PEM-encoded string
-LOGIN_DOT_GOV_CLIENT_PRIVATE_KEY = read_from_secret_store() # you write this
+LOGIN_DOT_GOV_PRIVATE_KEY = read_from_secret_store() # you write this
 ```
 
 ```python
